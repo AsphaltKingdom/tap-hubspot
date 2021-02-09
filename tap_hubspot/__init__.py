@@ -95,6 +95,7 @@ ENDPOINTS = {
     "forms":                "/forms/v2/forms",
     "workflows":            "/automation/v3/workflows",
     "owners":               "/owners/v2/owners",
+    "tickets":              "/crm/v3/objects/tickets",
 }
 
 def get_start(state, tap_stream_id, bookmark_key):
@@ -804,6 +805,36 @@ def sync_forms(STATE, ctx):
 
     return STATE
 
+def sync_tickets(STATE, ctx):
+    catalog = ctx.get_catalog_from_id(singer.get_currently_syncing(STATE))
+    mdata = metadata.to_map(catalog.get('metadata'))
+    schema = load_schema("tickets")
+    bookmark_key = 'updatedAt'
+    singer.write_schema("tickets", schema, ["id"], [bookmark_key], catalog.get('stream_alias'))
+    start = get_start(STATE, "tickets", bookmark_key)
+    max_bk_value = start
+
+    STATE = singer.write_bookmark(STATE, 'tickets', bookmark_key, max_bk_value)
+    singer.write_state(STATE)
+
+    LOGGER.info("sync_tickets from %s", start)
+
+    data = request(get_url("tickets")).json()
+    time_extracted = utils.now()
+
+    with Transformer(UNIX_MILLISECONDS_INTEGER_DATETIME_PARSING) as bumble_bee:
+        for row in data['tickets']:
+            record = bumble_bee.transform(lift_properties_and_versions(row), schema, mdata)
+            if record[bookmark_key] >= start:
+                singer.write_record("tickets", record, catalog.get('stream_alias'), time_extracted=time_extracted)
+            if record[bookmark_key] >= max_bk_value:
+                max_bk_value = record[bookmark_key]
+
+    STATE = singer.write_bookmark(STATE, 'tickets', bookmark_key, max_bk_value)
+    singer.write_state(STATE)
+    return STATE
+
+
 def sync_workflows(STATE, ctx):
     catalog = ctx.get_catalog_from_id(singer.get_currently_syncing(STATE))
     mdata = metadata.to_map(catalog.get('metadata'))
@@ -950,6 +981,7 @@ STREAMS = [
     Stream('contacts', sync_contacts, ["vid"], 'versionTimestamp', 'FULL_TABLE'),
     Stream('companies', sync_companies, ["companyId"], 'hs_lastmodifieddate', 'FULL_TABLE'),
     Stream('deals', sync_deals, ["dealId"], 'hs_lastmodifieddate', 'FULL_TABLE'),
+    Stream('tickets', sync_tickets, ["ticketId"], 'hs_lastmodifieddate', 'FULL_TABLE'),
     Stream('deal_pipelines', sync_deal_pipelines, ['pipelineId'], None, 'FULL_TABLE'),
     Stream('engagements', sync_engagements, ["engagement_id"], 'lastUpdated', 'FULL_TABLE')
 ]

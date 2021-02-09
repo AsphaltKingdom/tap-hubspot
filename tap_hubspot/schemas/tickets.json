@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "subject": {
+      "type": ["null", "string"]
+    },
+    "id": {
+      "type": ["null", "integer"]
+    },
+    "content": {
+      "type": ["null", "string"]
+    },
+    "createdate": {
+      "type": ["null", "string"],
+      "format": "date-time"
+    },
+    "createdAt": {
+      "type": ["null", "string"],
+      "format": "date-time"
+    },
+   "updatedAt": {
+      "type": ["null", "string"],
+      "format": "date-time"
+    }
+  }
+}
